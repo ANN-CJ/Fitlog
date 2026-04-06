@@ -3,99 +3,249 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>FitLog · 增肌減脂日誌</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<title>FitLog · 專業健身 AI 助手</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-:root { --accent: #2D5A27; --page: #F9F8F5; --surface: #FFFFFF; --ink: #1C1C1E; }
-body { font-family: 'DM Sans', sans-serif; background: var(--page); color: var(--ink); margin: 0; padding: 20px; }
-.card { background: var(--surface); padding: 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
-input, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #DDD; box-sizing: border-box; }
-button { background: var(--accent); color: white; border: none; font-weight: 600; cursor: pointer; }
-.spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #FFF; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+  :root { --ink: #1C1C1E; --surface: #FFFFFF; --page: #F9F8F5; --accent: #2D5A27; --accent-light: #EBF5E8; --amber: #D4820A; --red: #C0392B; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--page); color: var(--ink); margin: 0; padding: 15px; padding-bottom: 100px; -webkit-tap-highlight-color: transparent; }
+  .card { background: var(--surface); border-radius: 24px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); }
+  h2, h3 { font-family: 'DM Serif Display', serif; margin: 0 0 15px 0; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  input, select, button { border-radius: 12px; border: 1px solid #EEE; padding: 14px; font-size: 16px; width: 100%; box-sizing: border-box; }
+  button { background: var(--accent); color: white; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; }
+  button:active { transform: scale(0.98); opacity: 0.9; }
+  .water-btn { background: #E8F0FE; color: #1967D2; margin-top: 10px; }
+  .list-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #F5F5F5; font-size: 14px; }
+  .nav-bar { position: fixed; bottom: 20px; left: 20px; right: 20px; background: rgba(28,28,30,0.95); backdrop-filter: blur(10px); border-radius: 20px; display: flex; justify-content: space-around; padding: 15px; z-index: 1000; }
+  .nav-item { color: #8E8E93; text-decoration: none; font-size: 12px; text-align: center; }
+  .nav-item.active { color: white; }
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #FFF; border-radius: 50%; animation: spin 1s linear infinite; vertical-align: middle; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #chart-container { height: 200px; width: 100%; }
 </style>
 </head>
 <body>
 
 <div class="card">
-  <h2>🥗 飲食記錄 & AI 辨識</h2>
-  <input type="file" id="camera-input" accept="image/*" capture="environment" onchange="handleFileSelect(event)">
-  <button id="ai-btn">📸 拍照辨識熱量</button>
-  <hr>
-  <input type="text" id="food-name" placeholder="食物名稱">
-  <div id="res-display">
-    熱量: <span id="r-kcal">0</span> kcal | 
-    P: <span id="r-p">0</span>g | 
-    F: <span id="r-f">0</span>g | 
-    C: <span id="r-c">0</span>g
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <h2 id="display-date">今天</h2>
+    <input type="date" id="date-picker" style="width: auto; padding: 5px;" onchange="changeDate(this.value)">
   </div>
 </div>
 
 <div class="card">
-  <h2>⚙️ 設定</h2>
-  <input type="password" id="api-key-input" placeholder="貼上你的 Gemini API Key">
-  <button onclick="saveSettings()">儲存設定</button>
+  <h3>💧 喝水追蹤</h3>
+  <div style="font-size: 24px; font-weight: 600; color: #1967D2;"><span id="water-val">0</span> / 2500 ml</div>
+  <button class="water-btn" onclick="addWater(250)">+ 250ml 快速添加</button>
+</div>
+
+<div class="card">
+  <h3>🥗 AI 飲食辨識</h3>
+  <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none" onchange="handleFileSelect(event)">
+  <button onclick="document.getElementById('camera-input').click()" id="ai-btn">📸 拍照自動估計</button>
+  <div id="ai-status" style="margin-top:10px; font-size:13px; color:var(--accent);"></div>
+  <div class="grid" style="margin-top:15px;">
+    <input type="text" id="food-name" placeholder="食物名稱">
+    <input type="number" id="food-kcal" placeholder="熱量(kcal)">
+  </div>
+  <button style="margin-top:10px;" onclick="addMeal()">儲存此餐</button>
+  <div id="meal-list" style="margin-top:15px;"></div>
+</div>
+
+<div class="card">
+  <h3>⚖️ 體重紀錄</h3>
+  <div class="grid">
+    <input type="number" step="0.1" id="w-val" placeholder="體重(kg)">
+    <input type="number" step="0.1" id="f-val" placeholder="體脂(%)">
+  </div>
+  <button style="margin-top:10px; background:var(--ink);" onclick="saveWeight()">更新體重數據</button>
+  <div id="chart-container"><canvas id="weightChart"></canvas></div>
+</div>
+
+<div class="card">
+  <h3>📊 AI 本週建議</h3>
+  <button id="weekly-btn" onclick="generateWeeklyReport()">生成專業分析</button>
+  <div id="weekly-report-box" style="margin-top:15px; font-size:14px; line-height:1.6; white-space:pre-line;"></div>
+</div>
+
+<div class="card" id="settings">
+  <h3>⚙️ 系統設定</h3>
+  <p style="font-size:12px; color:#666;">API Key 會儲存在您的瀏覽器中，不會外流。</p>
+  <input type="password" id="api-key-input" placeholder="貼上您的 Gemini API Key">
+  <button style="margin-top:10px; background:#666;" onclick="saveSettings()">儲存金鑰</button>
+</div>
+
+<div class="nav-bar">
+  <a href="#" class="nav-item active">🏠 首頁</a>
+  <a href="#settings" class="nav-item">⚙️ 設定</a>
 </div>
 
 <script>
-// 初始化設定
-let GEMINI_API_KEY = localStorage.getItem('GEMINI_API_KEY') || "";
-if(GEMINI_API_KEY) document.getElementById('api-key-input').value = GEMINI_API_KEY;
+// --- 資料庫邏輯 ---
+let state = {
+  date: new Date().toISOString().split('T')[0],
+  db: JSON.parse(localStorage.getItem('fitlog_db')) || {},
+  apiKey: localStorage.getItem('GEMINI_API_KEY') || ""
+};
 
+function saveDB() { localStorage.setItem('fitlog_db', JSON.stringify(state.db)); }
+function getDayData(d) { 
+  if(!state.db[d]) state.db[d] = { meals: [], water: 0, weight: null, fat: null };
+  return state.db[d];
+}
+
+// --- 初始化頁面 ---
+function init() {
+  document.getElementById('date-picker').value = state.date;
+  document.getElementById('display-date').innerText = state.date === new Date().toISOString().split('T')[0] ? "今天" : state.date;
+  if(state.apiKey) document.getElementById('api-key-input').value = state.apiKey;
+  
+  const data = getDayData(state.date);
+  document.getElementById('water-val').innerText = data.water;
+  document.getElementById('w-val').value = data.weight || "";
+  document.getElementById('f-val').value = data.fat || "";
+  
+  renderMeals();
+  updateChart();
+}
+
+function changeDate(d) { state.date = d; init(); }
+
+// --- 喝水與體重 ---
+function addWater(ml) {
+  const data = getDayData(state.date);
+  data.water += ml;
+  saveDB();
+  init();
+}
+
+function saveWeight() {
+  const data = getDayData(state.date);
+  data.weight = parseFloat(document.getElementById('w-val').value);
+  data.fat = parseFloat(document.getElementById('f-val').value);
+  saveDB();
+  updateChart();
+  alert("體重數據已更新");
+}
+
+function renderMeals() {
+  const data = getDayData(state.date);
+  const container = document.getElementById('meal-list');
+  container.innerHTML = data.meals.map((m, i) => `
+    <div class="list-item">
+      <span>${m.name}</span>
+      <span>${m.kcal} kcal <button onclick="deleteMeal(${i})" style="width:auto; padding:2px 8px; background:none; color:red; border:none;">✕</button></span>
+    </div>
+  `).join('');
+}
+
+function addMeal() {
+  const name = document.getElementById('food-name').value;
+  const kcal = parseInt(document.getElementById('food-kcal').value);
+  if(!name || !kcal) return;
+  getDayData(state.date).meals.push({name, kcal});
+  saveDB();
+  document.getElementById('food-name').value = "";
+  document.getElementById('food-kcal').value = "";
+  renderMeals();
+}
+
+function deleteMeal(i) {
+  getDayData(state.date).meals.splice(i, 1);
+  saveDB();
+  renderMeals();
+}
+
+// --- AI 核心 (直連 Google) ---
 function saveSettings() {
-  const val = document.getElementById('api-key-input').value;
-  localStorage.setItem('GEMINI_API_KEY', val);
-  GEMINI_API_KEY = val;
-  alert("設定已儲存！");
+  const key = document.getElementById('api-key-input').value.trim();
+  localStorage.setItem('GEMINI_API_KEY', key);
+  state.apiKey = key;
+  alert("金鑰儲存成功！");
 }
 
 async function handleFileSelect(event) {
   const file = event.target.files[0];
-  if (!file) return;
+  if(!file || !state.apiKey) { alert("請先設定 API Key"); return; }
 
-  const keyToUse = localStorage.getItem('GEMINI_API_KEY') || GEMINI_API_KEY;
-  if (!keyToUse) { alert("請先在下方設定中輸入 API Key"); return; }
-
-  const aiBtn = document.getElementById('ai-btn');
-  const originalText = aiBtn.innerText;
-  aiBtn.innerHTML = '<span class="spinner"></span> 辨識中...';
-
+  const btn = document.getElementById('ai-btn');
+  btn.innerHTML = '<span class="spinner"></span> AI 辨識中...';
+  
   const reader = new FileReader();
   reader.readAsDataURL(file);
   reader.onload = async () => {
     const base64Data = reader.result.split(',')[1];
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${keyToUse}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.apiKey}`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{
             parts: [
-              { text: "你是一位營養師，請辨識圖中食物並估算熱量。請嚴格只回傳 JSON 格式：{\"name\":\"食物名稱\",\"kcal\":熱量,\"p\":蛋白,\"f\":脂肪,\"c\":碳水}。不要有其他文字。" },
+              { text: "辨識食物熱量，僅回傳 JSON: {\"name\":\"名稱\",\"kcal\":數字}" },
               { inline_data: { mime_type: file.type, data: base64Data } }
             ]
           }]
         })
       });
-
       const res = await response.json();
       const rawText = res.candidates[0].content.parts[0].text;
       const data = JSON.parse(rawText.replace(/```json|```/g, "").trim());
-
+      
       document.getElementById('food-name').value = data.name;
-      document.getElementById('r-kcal').innerText = data.kcal;
-      document.getElementById('r-p').innerText = data.p;
-      document.getElementById('r-f').innerText = data.f;
-      document.getElementById('r-c').innerText = data.c;
+      document.getElementById('food-kcal').value = data.kcal;
+      document.getElementById('ai-status').innerText = `✨ 辨識成功：${data.name}`;
     } catch (e) {
-      console.error(e);
-      alert("辨識失敗，請檢查 Key 是否正確或網路連線。");
+      alert("AI 辨識失敗，請檢查 Key 權限。");
     } finally {
-      aiBtn.innerText = originalText;
+      btn.innerHTML = '📸 拍照自動估計';
     }
   };
 }
+
+async function generateWeeklyReport() {
+  if(!state.apiKey) return alert("請先設定 API Key");
+  const btn = document.getElementById('weekly-btn');
+  btn.innerHTML = '<span class="spinner"></span> 分析中...';
+  
+  try {
+    const prompt = "我正在進行健身，請根據我最近的紀錄給予 150 字內的繁體中文專業建議。";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.apiKey}`;
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    const data = await response.json();
+    document.getElementById('weekly-report-box').innerText = data.candidates[0].content.parts[0].text;
+  } catch (e) {
+    alert("生成失敗");
+  } finally {
+    btn.innerHTML = '生成專業分析';
+  }
+}
+
+// --- 圖表邏輯 ---
+let chart;
+function updateChart() {
+  const ctx = document.getElementById('weightChart').getContext('2d');
+  const dates = Object.keys(state.db).sort().slice(-7);
+  const weights = dates.map(d => state.db[d].weight);
+
+  if(chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dates.map(d => d.slice(5)),
+      datasets: [{ label: '體重 (kg)', data: weights, borderColor: '#2D5A27', tension: 0.4 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
+}
+
+init();
 </script>
 </body>
 </html>
