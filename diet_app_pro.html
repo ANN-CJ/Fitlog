@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>飲食分析 Pro</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2D3B2A">
+
+<style>
+body{
+  font-family:sans-serif;
+  max-width:420px;
+  margin:auto;
+  background:#F7F6F2;
+  padding:16px;
+}
+
+.card{
+  background:#fff;
+  border-radius:16px;
+  padding:16px;
+  margin-bottom:12px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.06);
+  animation:fadeIn .3s ease;
+}
+
+@keyframes fadeIn{
+  from{opacity:0;transform:translateY(6px);}
+  to{opacity:1;}
+}
+
+button{
+  width:100%;
+  padding:12px;
+  border:none;
+  border-radius:12px;
+  background:#2D3B2A;
+  color:#fff;
+  font-size:14px;
+}
+
+input{
+  width:100%;
+  padding:12px;
+  border-radius:10px;
+  border:1px solid #ddd;
+  margin-bottom:10px;
+}
+
+.fab{
+  position:fixed;
+  bottom:20px;
+  right:20px;
+  width:56px;
+  height:56px;
+  border-radius:50%;
+  background:#2D3B2A;
+  color:#fff;
+  font-size:28px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 6px 20px rgba(0,0,0,0.3);
+}
+
+.ai-box{
+  border-left:4px solid #4A8A3F;
+  padding-left:10px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🍽 今日飲食</h2>
+
+<div class="card">
+  <div id="dailyTip" style="font-size:13px;color:#666;"></div>
+</div>
+
+<div class="card">
+  <input id="food" placeholder="輸入食物">
+  <button onclick="analyze()">AI分析</button>
+</div>
+
+<div class="card ai-box" id="result">
+尚未分析
+</div>
+
+<div class="card">
+<h3>🔥 今日狀態</h3>
+<div id="status">尚未計算</div>
+</div>
+
+<div class="card">
+<h3>🔑 API Key</h3>
+<input id="key" placeholder="貼上 Gemini API key">
+<button onclick="saveKey()">儲存</button>
+</div>
+
+<div class="fab" onclick="focusInput()">＋</div>
+
+<script>
+
+const tips=[
+"今天蛋白質有吃夠嗎？",
+"記得補充水分 💧",
+"少一點糖，多一點健康",
+"運動一下更有效果🔥"
+];
+
+document.getElementById("dailyTip").innerText =
+tips[Math.floor(Math.random()*tips.length)];
+
+function focusInput(){
+  document.getElementById("food").focus();
+}
+
+function getKey(){
+  return localStorage.getItem("key")||"";
+}
+
+function saveKey(){
+  const k=document.getElementById("key").value;
+  localStorage.setItem("key",k);
+  alert("已儲存");
+}
+
+async function analyze(){
+
+  const key=getKey();
+  if(!key){
+    alert("請先設定API key");
+    return;
+  }
+
+  const food=document.getElementById("food").value;
+  if(!food){
+    alert("請輸入食物");
+    return;
+  }
+
+  const prompt=`你是台灣營養師，估算 ${food} 的營養。
+只回JSON：
+{"kcal":數字,"protein":數字,"fat":數字,"carb":數字}`;
+
+  try{
+    const res=await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key="+key,
+      {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          contents:[{parts:[{text:prompt}]}]
+        })
+      }
+    );
+
+    const data=await res.json();
+    let txt=data.candidates[0].content.parts[0].text;
+
+    txt=txt.replace(/```json|```/g,'').trim();
+    const json=JSON.parse(txt);
+
+    document.getElementById("result").innerHTML=`
+    🔥 ${json.kcal} kcal<br>
+    🥩 蛋白 ${json.protein}g<br>
+    🧈 脂肪 ${json.fat}g<br>
+    🍚 碳水 ${json.carb}g
+    <div style="font-size:11px;color:#999;margin-top:6px;">
+    AI估算誤差約10-20%
+    </div>
+    `;
+
+    updateStatus(json.kcal);
+
+    navigator.vibrate?.(10);
+
+  }catch(e){
+    document.getElementById("result").innerText="AI失敗";
+  }
+}
+
+function updateStatus(kcal){
+  let text="";
+  if(kcal<400) text="🔥 熱量偏低，可以再吃";
+  else if(kcal>800) text="⚠️ 熱量偏高";
+  else text="✅ 控制良好";
+
+  document.getElementById("status").innerText=text;
+}
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js');
+}
+
+</script>
+
+</body>
+</html>
